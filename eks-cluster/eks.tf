@@ -1,0 +1,67 @@
+data "aws_ssm_parameter" "route_53_hostzone_id" {
+  name            = "route_53_hostzone_id"
+  with_decryption = true
+}
+
+locals {
+  tags = {
+    created-by = "Moloko"
+  }
+}
+
+module "eks" {
+  source  = "terraform-aws-modules/eks/aws"
+  version = "~> 20.0"
+
+  cluster_name                   = var.cluster_name
+  cluster_version                = var.cluster_version
+  cluster_endpoint_public_access = true
+
+  cluster_addons = {
+    vpc-cni = {
+      before_compute = true
+      most_recent    = true
+      configuration_values = jsonencode({
+        env = {
+          ENABLE_POD_ENI                    = "true"
+          ENABLE_PREFIX_DELEGATION          = "true"
+          POD_SECURITY_GROUP_ENFORCING_MODE = "standard"
+        }
+        nodeAgent = {
+          enablePolicyEventLogs = "true"
+        }
+        enableNetworkPolicy = "true"
+      })
+    }
+  }
+
+  vpc_id     = var.vpc_id
+  subnet_ids = var.subnet_ids
+
+  create_cluster_security_group = false
+  create_node_security_group    = false
+
+  eks_managed_node_groups = {
+    default = {
+      instance_types       = ["m5.large"]
+      force_update_version = true
+      release_version      = var.ami_release_version
+
+      min_size     = 1
+      max_size     = 3
+      desired_size = 2
+
+      update_config = {
+        max_unavailable_percentage = 50
+      }
+
+      labels = {
+        workshop-default = "yes"
+      }
+    }
+  }
+
+  tags = merge(local.tags, {
+    "karpenter.sh/discovery" = var.cluster_name
+  })
+}

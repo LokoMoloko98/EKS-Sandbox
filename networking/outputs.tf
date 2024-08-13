@@ -3,9 +3,9 @@ output "security_group_id" {
 }
 
 output "vpc_id" {
-  value = aws_vpc.vpc.id
+  value = module.vpc.vpc_id
 }
 
-output "subnet_id" {
-  value = aws_subnet.public_subnet_az1.id
+output "subnet_ids" {
+  value = module.vpc.private_subnets
 }

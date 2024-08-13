@@ -4,12 +4,14 @@ variable "region" {
   type        = string
 }
 
-#VPC variable
-variable "vpc_cidr" {
-  description = "VPC CIDR block"
+variable "cluster_name" {
+  description = "cluster name"
   type        = string
 }
 
+variable "security_group_id" {
+  type = string
+}
 
 variable "cluster_version" {
   description = "EKS cluster version."
@@ -21,6 +23,10 @@ variable "ami_release_version" {
   type        = string
 }
 
-variable "project_name" {
-  type = string
+variable "vpc_id" {
+  type        = string
+}
+
+variable "subnet_ids" {
+  type = list(string)
 }

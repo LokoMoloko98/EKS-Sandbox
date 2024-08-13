@@ -1,54 +1,51 @@
-# create vpc
-resource "aws_vpc" "vpc" {
-  cidr_block           = var.vpc_cidr
-  instance_tenancy     = "default"
+locals {
+  private_subnets = [for k, v in local.azs : cidrsubnet(var.vpc_cidr, 3, k + 3)]
+  public_subnets  = [for k, v in local.azs : cidrsubnet(var.vpc_cidr, 3, k)]
+  azs             = slice(data.aws_availability_zones.available.names, 0, 3)
+}
+
+locals {
+  tags = {
+    created-by = "Moloko"
+  }
+}
+
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
+module "vpc" {
+  source  = "terraform-aws-modules/vpc/aws"
+  version = "~> 5.1"
+
+  name = var.cluster_name
+  cidr = var.vpc_cidr
+
+  azs                   = local.azs
+  public_subnets        = local.public_subnets
+  private_subnets       = local.private_subnets
+  public_subnet_suffix  = "SubnetPublic"
+  private_subnet_suffix = "SubnetPrivate"
+
+  enable_nat_gateway   = true
+  create_igw           = true
   enable_dns_hostnames = true
+  single_nat_gateway   = true
 
-  tags = {
-    Name = "${var.project_name}-vpc"
-  }
-}
+  # Manage so we can name
+  manage_default_network_acl    = true
+  default_network_acl_tags      = { Name = "${var.cluster_name}-default" }
+  manage_default_route_table    = true
+  default_route_table_tags      = { Name = "${var.cluster_name}-default" }
+  manage_default_security_group = true
+  default_security_group_tags   = { Name = "${var.cluster_name}-default" }
 
-# create internet gateway and attach it to vpc
-resource "aws_internet_gateway" "internet_gateway" {
-  vpc_id = aws_vpc.vpc.id
+  public_subnet_tags = merge(local.tags, {
+    "kubernetes.io/role/elb" = "1"
+  })
+  private_subnet_tags = merge(local.tags, {
+    "karpenter.sh/discovery" = var.cluster_name
+  })
 
-  tags = {
-    Name = "${var.project_name}-igw"
-  }
-}
-
-# use data source to get all avalablility zones in region
-data "aws_availability_zones" "available_zones" {}
-
-# create public subnet az1
-resource "aws_subnet" "public_subnet_az1" {
-  vpc_id                  = aws_vpc.vpc.id
-  cidr_block              = var.public_subnet_az1_cidr
-  availability_zone       = data.aws_availability_zones.available_zones.names[0]
-  map_public_ip_on_launch = true
-
-  tags = {
-    Name = "${var.project_name}-public-az1"
-  }
-}
-
-# create route table and add public route
-resource "aws_route_table" "public_route_table" {
-  vpc_id = aws_vpc.vpc.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.internet_gateway.id
-  }
-
-  tags = {
-    Name = "${var.project_name}-public-route-table"
-  }
-}
-
-# associate public subnet az1 to "public route table"
-resource "aws_route_table_association" "public_subnet_az1_rt_association" {
-  subnet_id      = aws_subnet.public_subnet_az1.id
-  route_table_id = aws_route_table.public_route_table.id
+  tags = local.tags
 }

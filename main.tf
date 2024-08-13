@@ -1,9 +1,8 @@
 module "networking" {
-  source                 = "./networking"
-  region                 = var.region
-  public_subnet_az1_cidr = var.public_subnet_az1_cidr
-  vpc_cidr               = var.vpc_cidr
-  project_name           = var.project_name
+  source       = "./networking"
+  region       = var.region
+  vpc_cidr     = var.vpc_cidr
+  cluster_name = "sandbox-cluster"
 }
 
 module "iam" {
@@ -12,16 +11,15 @@ module "iam" {
   region       = var.region
 }
 
-module "compute" {
-  source            = "./compute"
-  security_group_id = module.networking.security_group_id
-  instance_profile  = module.iam.instance_profile
-  subnet_id         = module.networking.subnet_id
-  ssh_key_pair      = var.ssh_key_pair
-  instance_type     = var.instance_type
-  ami_id            = var.ami_id
-  host_os           = var.host_os
-  region            = var.region
-  project_name      = var.project_name
+module "eks-cluster" {
+  source              = "./eks-cluster"
+  security_group_id   = module.networking.security_group_id
+  vpc_id              = module.networking.vpc_id
+  subnet_ids          = module.networking.subnet_ids
+  region              = var.region
+  cluster_name        = "sandbox-cluster"
+  cluster_version     = var.cluster_version
+  ami_release_version = var.ami_release_version
+
 
 }
