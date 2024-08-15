@@ -5,12 +5,6 @@ module "networking" {
   cluster_name = "sandbox-cluster"
 }
 
-module "iam" {
-  source       = "./iam"
-  project_name = var.project_name
-  region       = var.region
-}
-
 module "eks-cluster" {
   source              = "./eks-cluster"
   security_group_id   = module.networking.security_group_id
